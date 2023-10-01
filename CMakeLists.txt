@@ -20,6 +20,6 @@ if(NOT GRAPHVIZ_FOUND)
 endif()
 
 
-target_link_libraries(main ${SFML_LIBRARIES} ${GRAPHVIZ_CGRAPH_LIBRARY})
+target_link_libraries(main ${SFML_LIBRARIES} ${GRAPHVIZ_CGRAPH_LIBRARY} frontier-phoenix)
 
 

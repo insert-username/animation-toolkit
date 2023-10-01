@@ -25,14 +25,14 @@ namespace atk {
          */
         int _z_order;
 
-        std::map<std::string, std::shared_ptr<SceneNode>> children;
+        std::map<std::string, std::shared_ptr<SceneNode>> _children;
 
         std::weak_ptr<SceneNode> _parent;
 
     public:
         explicit SceneNode(std::unique_ptr<sf::Drawable> drawable,
                   const int &z_order = 0) :
-                children(),
+                _children(),
                 _transform(sf::Transform::Identity),
                 sf_element(std::move(drawable)),
                 _z_order(z_order),
@@ -40,15 +40,36 @@ namespace atk {
         }
 
         explicit SceneNode(const int &z_order = 0) :
-                children(),
+                _children(),
                 _transform(sf::Transform::Identity),
                 sf_element(nullptr),
                 _z_order(z_order),
                 _parent(std::weak_ptr<SceneNode>()) {
         }
 
+        const std::map<std::string, std::shared_ptr<SceneNode>>& children() const {
+            return _children;
+        }
+
         std::weak_ptr<sf::Drawable> drawable() {
             return this->sf_element;
+        }
+
+        void clear() {
+            for (auto& kv : this->_children) {
+                kv.second->_parent = std::weak_ptr<SceneNode>();
+            }
+
+            this->_children.clear();
+        }
+
+        void remove(const std::string& id) {
+            if (!this->_children.contains(id)) {
+                throw std::runtime_error("specified id not present");
+            }
+
+            this->_children[id]->_parent = std::weak_ptr<SceneNode>();
+            this->_children.erase(id);
         }
 
         /**
@@ -175,7 +196,7 @@ namespace atk {
 
             std::cout << std::endl;
 
-            for (auto &c : children) {
+            for (auto &c : _children) {
                 for (int i = 0; i <= depth; i++) {
                     std::cout << "    ";
 
@@ -204,7 +225,7 @@ namespace atk {
             float dx = current_translation_offset.x - current_translation.first;
             float dy = current_translation_offset.y - current_translation.second;
 
-            for (auto &c: children) {
+            for (auto &c: _children) {
                 c.second->transform().translate(-dx, -dy);
             }
 
@@ -219,7 +240,7 @@ namespace atk {
 
         sf::FloatRect world_bounds_recursive() const {
             auto this_bounds = world_bounds();
-            for (const auto& c : children) {
+            for (const auto& c : _children) {
                 auto child_bounds = c.second->world_bounds_recursive();
 
                 float left = std::min(this_bounds.left, child_bounds.left);
@@ -289,25 +310,25 @@ namespace atk {
         }
 
         std::shared_ptr<SceneNode> add(const std::string &name) {
-            if (children.find(name) != children.end()) {
+            if (_children.find(name) != _children.end()) {
                 throw std::runtime_error(
                         (std::stringstream() << "Child with name " << name << " already present.").str());
             }
 
-            children[name] = std::make_shared<SceneNode>(_z_order);
-            children[name]->_parent = shared_from_this();
-            return children[name];
+            _children[name] = std::make_shared<SceneNode>(_z_order);
+            _children[name]->_parent = shared_from_this();
+            return _children[name];
         }
 
         std::shared_ptr<SceneNode> add(const std::string &name, std::shared_ptr<SceneNode> node) {
-            if (children.find(name) != children.end()) {
+            if (_children.find(name) != _children.end()) {
                 throw std::runtime_error(
                         (std::stringstream() << "Child with name " << name << " already present.").str());
             }
 
-            children[name] = std::move(node); //std::make_shared<SceneNode>(std::move(drawable), _z_order);
-            children[name]->_parent = shared_from_this();
-            return children[name];
+            _children[name] = std::move(node); //std::make_shared<SceneNode>(std::move(drawable), _z_order);
+            _children[name]->_parent = shared_from_this();
+            return _children[name];
         }
 
         std::shared_ptr<SceneNode> add(const std::string &name, std::unique_ptr<sf::Drawable> drawable) {
@@ -315,15 +336,15 @@ namespace atk {
         }
 
         bool contains(const std::string& name) const {
-            return children.contains(name);
+            return _children.contains(name);
         }
 
         std::shared_ptr<SceneNode> &get(const std::string &name) {
-            if (children.find(name) == children.end()) {
+            if (_children.find(name) == _children.end()) {
                 throw std::runtime_error((std::stringstream() << "Child with name " << name << " not present.").str());
             }
 
-            return children[name];
+            return _children[name];
         }
 
         template<typename T>
@@ -352,14 +373,14 @@ namespace atk {
 
             callback(dynamic_cast<T &>(*sf_element));
 
-            for (auto &s: children) {
+            for (auto &s: _children) {
                 s.second->modify<T>(callback);
             }
         }
 
         void visit_recursive(const std::function<void(std::shared_ptr<SceneNode>)>& visitor) {
             visitor(shared_from_this());
-            for (auto &s : children) {
+            for (auto &s : _children) {
                 s.second->visit_recursive(visitor);
             }
         }
@@ -379,7 +400,7 @@ namespace atk {
                     throw std::runtime_error("Internal error.");
                 }
 
-                for (auto &kv: top->children) {
+                for (auto &kv: top->_children) {
                     std::shared_ptr<SceneNode> next = kv.second;
                     stack.push(next);
                 }

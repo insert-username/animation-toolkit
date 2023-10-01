@@ -8,7 +8,10 @@
 #include "../entities/arrow.h"
 #include "../utils/transforms.h"
 
+#include <ffnx/graph/Graph.h>
+
 namespace atk {
+
     struct GraphVizModel {
 
         std::map<std::string, std::map<std::string, std::string>> nodes;
@@ -82,6 +85,32 @@ namespace atk {
             }
 
             return values;
+        }
+    };
+
+    class GraphVizFlowGraphFactory {
+
+    public:
+        using ffnx_graph = ffnx::graph::UndirectedGraph<std::string, std::string>;
+
+
+        static std::unique_ptr<ffnx_graph> get_graph(const GraphVizModel& model) {
+            auto result = std::make_unique<ffnx_graph>();
+
+            std::map<std::string, ffnx_graph::vertex_descriptor> nodes;
+            for (auto &n : model.nodes) {
+                auto v = result->add_vertex();
+                nodes[n.first] = v;
+                (*result)[v] = n.first;
+            }
+
+            for (auto &n : model.edges) {
+                auto v0 = nodes[n.first.first];
+                auto v1 = nodes[n.first.second];
+                auto e = result->add_edge(v0, v1);
+            }
+
+            return std::move(result);
         }
     };
 
